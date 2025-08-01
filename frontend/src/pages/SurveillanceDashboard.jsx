@@ -11,7 +11,7 @@ const SurveillanceDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(2000); // ms between analyses
+  const [analysisInterval, setAnalysisInterval] = useState(50); // ms between analyses
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const analysisTimerRef = useRef(null);

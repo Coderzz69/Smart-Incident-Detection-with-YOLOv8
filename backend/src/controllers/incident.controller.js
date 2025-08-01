@@ -15,8 +15,6 @@ export const incidentController = async (req, res) => {
       image_base64: base64Image,  // ✅ matches Python's expected key
     });
 
-    console.log(response.data);
-
     return res.json(response.data);
   } catch (err) {
     console.error("Error processing image:", err.response?.data || err.message);
