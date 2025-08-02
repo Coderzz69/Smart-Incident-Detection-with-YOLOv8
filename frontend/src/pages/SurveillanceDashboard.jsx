@@ -1,27 +1,32 @@
 import { useState, useEffect, useRef } from "react";
 import { axiosInstance } from "../lib/axios";
 import { toast } from "react-hot-toast";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend,
-} from "recharts";
+
+const ALERT_COOLDOWN = 30000; // 30 seconds cooldown between same-type alerts
 
 const SurveillanceDashboard = () => {
-  const [result, setResult] = useState(null);
+  // State management
+  const [result, setResult] = useState({
+    fire_count: 0,
+    smoke_count: 0,
+    crowd_density: 0,
+    location: "Unknown",
+    alertType: "None",
+    annotated_img_base64: null
+  });
   const [loading, setLoading] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
-  const [analysisInterval, setAnalysisInterval] = useState(50); // ms between analyses
+  const [analysisInterval, setAnalysisInterval] = useState(50);
+  const [threatAnalysis, setThreatAnalysis] = useState("Waiting for first analysis...");
+  const [lastAlertTime, setLastAlertTime] = useState({});
+  
+  // Refs for video handling
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const analysisTimerRef = useRef(null);
 
-  const chartData = [
-    { type: "Fire", present: result?.fire ? 1 : 0 },
-    { type: "Smoke", present: result?.smoke ? 1 : 0 },
-  ];
-
-  // Start/stop camera
+  // Camera control functions
   const toggleCamera = async () => {
     if (isCameraActive) {
       stopCamera();
@@ -35,11 +40,14 @@ const SurveillanceDashboard = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: "environment" } 
       });
-      videoRef.current.srcObject = stream;
-      streamRef.current = stream;
-      setIsCameraActive(true);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setIsCameraActive(true);
+      }
     } catch (err) {
-      toast.error("Could not access camera: " + err.message);
+      toast.error("Camera error: " + err.message);
     }
   };
 
@@ -48,16 +56,18 @@ const SurveillanceDashboard = () => {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    
     setIsCameraActive(false);
     stopAutoAnalysis();
   };
 
-  // Capture image from camera
+  // Image capture function
   const captureImage = () => {
-    if (!isCameraActive) return;
+    if (!isCameraActive || !videoRef.current) return null;
 
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
@@ -66,12 +76,101 @@ const SurveillanceDashboard = () => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    return canvas.toDataURL('image/jpeg');
+    return canvas.toDataURL('image/jpeg', 0.8);
   };
 
-  // Analyze captured image
+  // Threat analysis and alerting
+  const generateThreatSummary = (data) => {
+    const threats = [];
+    
+    if (data.fire_count > 0) {
+      threats.push({
+        level: "CRITICAL",
+        message: `🔥 Fire detected (${data.fire_count} ${data.fire_count > 1 ? "locations" : "location"})`,
+        actions: ["Activate fire alarms", "Initiate evacuation", "Contact fire department"]
+      });
+    }
+    
+    if (data.smoke_count > 0) {
+      threats.push({
+        level: "HIGH",
+        message: `💨 Smoke detected (${data.smoke_count} ${data.smoke_count > 1 ? "areas" : "area"})`,
+        actions: ["Investigate source", "Prepare extinguishers", "Check ventilation"]
+      });
+    }
+    
+    if (data.crowd_density > 0.7) {
+      threats.push({
+        level: "HIGH",
+        message: `👥 Crowd congestion (${Math.round(data.crowd_density * 100)}% density)`,
+        actions: ["Deploy security", "Open additional exits", "Monitor choke points"]
+      });
+    } else if (data.crowd_density > 0.4) {
+      threats.push({
+        level: "MEDIUM",
+        message: `👥 Growing crowd (${Math.round(data.crowd_density * 100)}% density)`,
+        actions: ["Monitor situation", "Prepare crowd control"]
+      });
+    }
+
+    if (threats.length === 0) {
+      return {
+        summary: "✅ No immediate threats detected\n\nRecommendation: Continue routine monitoring",
+        alertType: "None"
+      };
+    }
+
+    const summary = threats.map(t => (
+      `${t.level} RISK: ${t.message}\nACTIONS: ${t.actions.join(", ")}`
+    )).join("\n\n");
+
+    const highestRisk = threats.some(t => t.level === "CRITICAL") ? "Fire" :
+                       threats.some(t => t.level === "HIGH") ? "Crowd" : "Monitor";
+
+    return {
+      summary: `🚨 THREAT DETECTED 🚨\n\n${summary}\n\nImmediate attention required.`,
+      alertType: highestRisk === "Fire" ? "Fire" : 
+                highestRisk === "Crowd" ? "Crowd" : "None"
+    };
+  };
+
+  const alertOfficials = (alertType, location) => {
+    const now = Date.now();
+    const lastAlert = lastAlertTime[alertType] || 0;
+    
+    // Check if cooldown period has passed for this alert type
+    if (now - lastAlert < ALERT_COOLDOWN) {
+      console.log(`Alert ${alertType} skipped (cooldown active)`);
+      return;
+    }
+
+    const alertMap = {
+      Fire: {
+        recipients: ["fire_department@example.com", "security@example.com", "medical@example.com"],
+        message: `URGENT: Fire detected at ${location}. Immediate response required.`
+      },
+      Crowd: {
+        recipients: ["security@example.com", "operations@example.com"],
+        message: `Crowd congestion at ${location} (${Math.round(result.crowd_density * 100)}% density).`
+      }
+    };
+
+    if (alertMap[alertType]) {
+      // In production, integrate with your alert system (email API, SMS, etc.)
+      console.log(`Alerting ${alertMap[alertType].recipients.join(", ")}: ${alertMap[alertType].message}`);
+      toast.success(`${alertType} alert dispatched`);
+      
+      // Update last alert time for this type
+      setLastAlertTime(prev => ({
+        ...prev,
+        [alertType]: now
+      }));
+    }
+  };
+
+  // Main analysis function
   const handleAnalyze = async () => {
-    if (!isCameraActive) return toast.error("Please activate camera first.");
+    if (!isCameraActive) return toast.error("Activate camera first");
     if (loading) return;
 
     const imageData = captureImage();
@@ -80,11 +179,21 @@ const SurveillanceDashboard = () => {
     setLoading(true);
     try {
       const res = await axiosInstance.post("/incident/detect", { image: imageData });
-      setResult(res.data);
-        
+      const { summary, alertType } = generateThreatSummary(res.data);
+      
+      setResult({
+        ...res.data,
+        alertType: alertType || "None"
+      });
+      setThreatAnalysis(summary);
+      
+      if (alertType && alertType !== "None") {
+        alertOfficials(alertType, res.data.location);
+      }
+
     } catch (err) {
-      console.error(err);
-      toast.error("Analysis failed.");
+      console.error("Analysis error:", err);
+      toast.error("Analysis failed");
     } finally {
       setLoading(false);
     }
@@ -106,14 +215,11 @@ const SurveillanceDashboard = () => {
   };
 
   const toggleAutoAnalyze = () => {
-    if (autoAnalyze) {
-      stopAutoAnalysis();
-    } else {
-      startAutoAnalysis();
-    }
+    if (autoAnalyze) stopAutoAnalysis();
+    else startAutoAnalysis();
   };
 
-  // Clean up on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopCamera();
@@ -122,14 +228,17 @@ const SurveillanceDashboard = () => {
   }, []);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Real-time Surveillance Analyzer</h1>
+    <div className="p-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">AI Surveillance Threat Monitor</h1>
 
-      <div className="border p-4 rounded shadow mb-4">
+      {/* Camera Control Section */}
+      <div className="border p-4 rounded-lg shadow-md mb-6">
         <div className="flex flex-wrap gap-4 mb-4">
           <button
             onClick={toggleCamera}
-            className={`px-4 py-2 rounded ${isCameraActive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+            className={`px-4 py-2 rounded-md ${
+              isCameraActive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+            } text-white`}
           >
             {isCameraActive ? "Stop Camera" : "Start Camera"}
           </button>
@@ -137,25 +246,27 @@ const SurveillanceDashboard = () => {
           <button
             onClick={handleAnalyze}
             disabled={!isCameraActive || loading}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
           >
-            {loading ? "Analyzing..." : "Analyze Now"}
+            {loading ? "Analyzing..." : "Analyze Frame"}
           </button>
 
           <button
             onClick={toggleAutoAnalyze}
             disabled={!isCameraActive}
-            className={`px-4 py-2 rounded ${autoAnalyze ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50`}
+            className={`px-4 py-2 rounded-md ${
+              autoAnalyze ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+            } text-white disabled:opacity-50`}
           >
-            {autoAnalyze ? "Stop Auto-Analysis" : "Start Auto-Analysis"}
+            {autoAnalyze ? "Stop Auto" : "Auto Analyze"}
           </button>
         </div>
 
-        <div className="relative bg-black rounded overflow-hidden mb-4">
+        <div className="relative bg-black rounded-lg overflow-hidden mb-4">
           <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
+            ref={videoRef}
+            autoPlay
+            playsInline
             className="w-full h-auto max-h-96 mx-auto"
             style={{ display: isCameraActive ? 'block' : 'none' }}
           />
@@ -167,56 +278,95 @@ const SurveillanceDashboard = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <label>Analysis Interval (ms):</label>
+          <label className="text-sm">Analysis Interval (ms):</label>
           <input 
             type="number" 
             value={analysisInterval} 
             onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  setAnalysisInterval(isNaN(value) ? 2000 : Math.max(500, value));
-                }}
+              const val = parseInt(e.target.value);
+              setAnalysisInterval(isNaN(val) ? 2000 : Math.max(500, val));
+            }}
             min="500"
-            step="500"
+            step="100"
             className="border p-1 rounded w-24"
             disabled={autoAnalyze}
           />
         </div>
       </div>
 
+      {/* Results Section */}
       {result && (
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">Incident Details</h2>
-          <ul className="list-disc pl-5 mb-4">
-            <li><strong>Fire:</strong> {result.fire ? "Detected" : "Not Detected"}</li>
-            <li><strong>Smoke:</strong> {result.smoke ? "Detected" : "Not Detected"}</li>
-            <li><strong>Location:</strong> {result.location || "Unknown"}</li>
-            <li><strong>Alert:</strong> {result.alert || "None"}</li>
-            <li><strong>Last analyzed:</strong> {new Date().toLocaleTimeString()}</li>
-          </ul>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Incident Details */}
+            <div className="border p-4 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4">Incident Details</h2>
+              <ul className="space-y-3">
+                <li className="flex justify-between">
+                  <span>Fire Detection:</span>
+                  <span className={`font-medium ${
+                    result.fire_count > 0 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {result.fire_count > 0 ? `Detected (${result.fire_count})` : "None"}
+                  </span>
+                </li>
+                <li className="flex justify-between">
+                  <span>Smoke Detection:</span>
+                  <span className={`font-medium ${
+                    result.smoke_count > 0 ? 'text-orange-600' : 'text-green-600'
+                  }`}>
+                    {result.smoke_count > 0 ? `Detected (${result.smoke_count})` : "None"}
+                  </span>
+                </li>
+                <li className="flex justify-between">
+                  <span>Crowd Density:</span>
+                  <span className={`font-medium ${
+                    result.crowd_density > 0.7 ? 'text-red-600' : 
+                    result.crowd_density > 0.4 ? 'text-yellow-600' : 'text-green-600'
+                  }`}>
+                    {Math.round(result.crowd_density * 100)}%
+                  </span>
+                </li>
+                <li className="flex justify-between">
+                  <span>Location:</span>
+                  <span>{result.location}</span>
+                </li>
+                <li className="flex justify-between">
+                  <span>Alert Status:</span>
+                  <span className={`font-bold ${
+                    result.alertType === "Fire" ? 'text-red-600' :
+                    result.alertType === "Crowd" ? 'text-yellow-600' : 'text-green-600'
+                  }`}>
+                    {result.alertType}
+                  </span>
+                </li>
+                <li className="flex justify-between">
+                  <span>Last Analyzed:</span>
+                  <span>{new Date().toLocaleTimeString()}</span>
+                </li>
+              </ul>
+            </div>
 
-          {/* Display the annotated image */}
-          {result.image_annotated && (
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold mb-2">Annotated Image</h2>
-              <img 
-                src={`data:image/jpeg;base64,${result.image_annotated}`} 
-                alt="Annotated Analysis" 
-                className="max-h-96 rounded mx-auto"
+            {/* Threat Analysis */}
+            <div className="border p-4 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4">Threat Assessment</h2>
+              <div className="bg-gray-50 p-3 rounded border min-h-[200px]">
+                <pre className="whitespace-pre-wrap font-sans">{threatAnalysis}</pre>
+              </div>
+            </div>
+          </div>
+
+          {/* Annotated Image */}
+          {result.annotated_img_base64 && (
+            <div className="border p-4 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4">Annotated Image</h2>
+              <img
+                src={`data:image/jpeg;base64,${result.annotated_img_base64}`}
+                alt="Detection results"
+                className="max-h-96 mx-auto rounded-lg border"
               />
             </div>
           )}
-
-          <h2 className="text-xl font-semibold mb-2">Incident Chart</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="type" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="present" fill="#f87171" />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       )}
     </div>

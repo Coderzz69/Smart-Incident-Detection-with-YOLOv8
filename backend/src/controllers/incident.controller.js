@@ -11,9 +11,10 @@ export const incidentController = async (req, res) => {
 
     const base64Image = image.split(',')[1]; // Remove 'data:image/jpeg;base64,'
 
-    const response = await axios.post("http://10.100.11.203:5001/predict", {
-      image_base64: base64Image,  // ✅ matches Python's expected key
+    const response = await axios.post("http://10.100.11.203:5001/detect", {
+      img_base64: base64Image,  // ✅ matches Python's expected key
     });
+    console.log(response.data);
 
     return res.json(response.data);
   } catch (err) {
