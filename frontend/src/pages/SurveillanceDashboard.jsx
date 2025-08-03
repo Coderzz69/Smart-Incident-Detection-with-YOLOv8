@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import { axiosInstance } from "../lib/axios"; // adjust the path if needed
-import { toast, Toaster } from "react-hot-toast";
+import { useState, useEffect, useRef } from "react";
+import { axiosInstance } from "../lib/axios";
+import { toast } from "react-hot-toast";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -19,12 +19,6 @@ const DEFAULT_POSITION = [17.537926, 78.384897]; // VNRVJIET Main Gate Hyderabad
 const ALERT_COOLDOWN = 30000;
 const AI_DISPLAY_DELAY = 0;
 const THREAT_NOTIFICATION_DELAY = 1000;
-
-const Navbar = () => (
-  <nav className="fixed top-0 left-0 w-full h-16 bg-white z-50 shadow flex items-center px-6">
-    <h1 className="text-xl font-bold">Surveillance Dashboard</h1>
-  </nav>
-);
 
 const SurveillanceDashboard = ({ user, buildingInfo }) => {
   const [result, setResult] = useState({
@@ -60,7 +54,6 @@ const SurveillanceDashboard = ({ user, buildingInfo }) => {
       clearTimeout(aiDisplayTimerRef.current);
       clearTimeout(threatNotificationTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -68,7 +61,6 @@ const SurveillanceDashboard = ({ user, buildingInfo }) => {
       stopAutoAnalysis();
       startAutoAnalysis();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisInterval]);
 
   const toggleCamera = async () => {
@@ -192,7 +184,7 @@ const SurveillanceDashboard = ({ user, buildingInfo }) => {
       const res = await axiosInstance.post("/incident/detect", { image: imageData });
       const { summary, alertType } = generateThreatSummary(res.data);
 
-      // For location mapping, currently default only
+      // You can map locations to coords here, for now using DEFAULT_POSITION
       const coords = res.data.location === "E Block" ? DEFAULT_POSITION : DEFAULT_POSITION;
 
       setResult(prev => ({
@@ -248,248 +240,233 @@ const SurveillanceDashboard = ({ user, buildingInfo }) => {
   const isExtremeDanger = result.alertType === "Fire" && result.location === "E Block";
 
   return (
-    <>
-      <Toaster />
-      <div className="pt-16 flex flex-col md:flex-row gap-8 p-6 max-w-7xl mx-auto">
-        {/* Main Content */}
-        <div className="flex-1 space-y-6">
-          <h2 className="text-2xl font-bold mb-4">AI Surveillance Threat Monitor</h2>
-
-          {/* Camera Controls */}
-          <div className="border p-4 rounded-lg shadow-md mb-4">
-            <div className="flex flex-wrap gap-4 mb-4">
-              <button
-                onClick={toggleCamera}
-                className={`px-4 py-2 rounded-md ${isCameraActive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>
-                {isCameraActive ? "Stop Camera" : "Start Camera"}
-              </button>
-              <button
-                onClick={handleAnalyze}
-                disabled={!isCameraActive || loading}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">
-                {loading ? "Analyzing..." : "Analyze Frame"}
-              </button>
-              <button
-                onClick={toggleAutoAnalyze}
-                disabled={!isCameraActive}
-                className={`px-4 py-2 rounded-md ${autoAnalyze ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50`}>
-                {autoAnalyze ? "Stop Auto" : "Auto Analyze"}
-              </button>
-            </div>
-
-            <div className="relative bg-black rounded-lg overflow-hidden mb-4">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-auto max-h-96 mx-auto"
-                style={{ display: isCameraActive ? 'block' : 'none' }}
-              />
-              {!isCameraActive && (
-                <div className="w-full h-64 bg-gray-800 flex items-center justify-center text-white">
-                  Camera is inactive
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-sm">Analysis Interval (ms):</label>
-              <input
-                type="number"
-                value={analysisInterval}
-                onChange={e => {
-                  const val = parseInt(e.target.value);
-                  setAnalysisInterval(isNaN(val) ? 50 : Math.max(50, val));
-                }}
-                min="50"
-                step="50"
-                className="border p-1 rounded w-24"
-                disabled={autoAnalyze}
-              />
-            </div>
+    <div className="pt-16 flex flex-col md:flex-row gap-8 p-6 max-w-7xl mx-auto">
+      {/* Main Content */}
+      <div className="flex-1 space-y-6">
+        <h1 className="text-2xl font-bold mb-4">AI Surveillance Threat Monitor</h1>
+        
+        {/* Camera Controls */}
+        <div className="border p-4 rounded-lg shadow-md mb-4">
+          <div className="flex flex-wrap gap-4 mb-4">
+            <button
+              onClick={toggleCamera}
+              className={`px-4 py-2 rounded-md ${isCameraActive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>
+              {isCameraActive ? "Stop Camera" : "Start Camera"}
+            </button>
+            <button
+              onClick={handleAnalyze}
+              disabled={!isCameraActive || loading}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50">
+              {loading ? "Analyzing..." : "Analyze Frame"}
+            </button>
+            <button
+              onClick={toggleAutoAnalyze}
+              disabled={!isCameraActive}
+              className={`px-4 py-2 rounded-md ${autoAnalyze ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50`}>
+              {autoAnalyze ? "Stop Auto" : "Auto Analyze"}
+            </button>
           </div>
 
-          {/* Incident Details and Threat Assessment */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="border p-4 rounded-lg shadow-md">
-              <h3 className="text-xl font-semibold mb-4">Incident Details</h3>
-              <ul className="space-y-3">
-                <li className="flex justify-between">
-                  <span>Fire Detection:</span>
-                  <span className={`font-medium ${result.fire_count > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {result.fire_count > 0 ? `Detected (${result.fire_count})` : "None"}
-                  </span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Smoke Detection:</span>
-                  <span className={`font-medium ${result.smoke_count > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                    {result.smoke_count > 0 ? `Detected (${result.smoke_count})` : "None"}
-                  </span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Crowd Density:</span>
-                  <span className={`font-medium ${result.crowd_density > 0.7 ? 'text-red-600' : result.crowd_density > 0.4 ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {Math.round(result.crowd_density * 100)}%
-                  </span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Location:</span>
-                  <span>{result.location}</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Alert Status:</span>
-                  <span className={`font-bold ${result.alertType === "Fire" ? 'text-red-600' : result.alertType === "Crowd" ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {result.alertType}
-                  </span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Last Analyzed:</span>
-                  <span>{lastAnalysisTime ? lastAnalysisTime.toLocaleTimeString() : "Never"}</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="border p-4 rounded-lg shadow-md">
-              <h3 className="text-xl font-semibold mb-4">Threat Assessment</h3>
-              <div className="bg-gray-50 p-3 rounded border min-h-[200px] whitespace-pre-wrap font-sans">
-                {showAIResult ? threatAnalysis : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="animate-pulse text-gray-500">
-                      {loading ? "Analyzing threats..." : "Analysis ready"}
-                    </div>
-                  </div>
-                )}
+          <div className="relative bg-black rounded-lg overflow-hidden mb-4">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-auto max-h-96 mx-auto"
+              style={{ display: isCameraActive ? 'block' : 'none' }}
+            />
+            {!isCameraActive && (
+              <div className="w-full h-64 bg-gray-800 flex items-center justify-center text-white">
+                Camera is inactive
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Annotated Images */}
-          {(result.annotated_img_base64 || result.crowd_annotated_img_base64) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {result.annotated_img_base64 && (
-                <div className="border p-4 rounded-lg shadow-md">
-                  <h3 className="text-xl font-semibold mb-4">Detection Results</h3>
-                  <img
-                    src={`data:image/jpeg;base64,${result.annotated_img_base64}`}
-                    alt="Detection results"
-                    className="max-h-96 mx-auto rounded-lg border"
-                  />
-                </div>
-              )}
-              {result.crowd_annotated_img_base64 && (
-                <div className="border p-4 rounded-lg shadow-md">
-                  <h3 className="text-xl font-semibold mb-4">Crowd Analysis</h3>
-                  <img
-                    src={`data:image/jpeg;base64,${result.crowd_annotated_img_base64}`}
-                    alt="Crowd analysis results"
-                    className="max-h-96 mx-auto rounded-lg border"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Incident History Table */}
-          <div className="border p-4 rounded-lg shadow-md mb-4">
-            <h3 className="text-xl font-semibold mb-2">Incident History</h3>
-            <div className="max-h-64 overflow-y-auto rounded border">
-              <table className="min-w-full text-xs table-auto">
-                <thead className="sticky top-0 bg-white z-10 shadow">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-bold text-gray-700">Time</th>
-                    <th className="px-3 py-2 text-left font-bold text-gray-700">Fire</th>
-                    <th className="px-3 py-2 text-left font-bold text-gray-700">Smoke</th>
-                    <th className="px-3 py-2 text-left font-bold text-gray-700">Crowd</th>
-                    <th className="px-3 py-2 text-left font-bold text-gray-700">Location</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {incidentLog.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-4 text-center text-gray-400">No incidents yet</td>
-                    </tr>
-                  ) : (
-                    incidentLog.map((item, idx) => (
-                      <tr
-                        key={idx}
-                        className={`border-b ${idx % 2 === 0 ? 'bg-gray-100' : 'bg-white'} hover:bg-blue-50 transition`}
-                      >
-                        <td className="px-3 py-2">{item.timestamp && new Date(item.timestamp).toLocaleTimeString()}</td>
-                        <td className="px-3 py-2">{item.fire_count}</td>
-                        <td className="px-3 py-2">{item.smoke_count}</td>
-                        <td className="px-3 py-2">{Math.round(item.crowd_density * 100)}%</td>
-                        <td className="px-3 py-2">{item.location}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm">Analysis Interval (ms):</label>
+            <input
+              type="number"
+              value={analysisInterval}
+              onChange={e => {
+                const val = parseInt(e.target.value);
+                setAnalysisInterval(isNaN(val) ? 50 : Math.max(50, val));
+              }}
+              min="50"
+              step="50"
+              className="border p-1 rounded w-24"
+              disabled={autoAnalyze}
+            />
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="w-full md:w-96 flex flex-col gap-6">
-          <div className="border p-4 rounded-lg shadow-md bg-white overflow-hidden">
-            <h3 className="text-xl font-semibold mb-2">Incident Location Map</h3>
-            <div style={{ borderRadius: 16, overflow: "hidden", minHeight: 250 }}>
-              <MapContainer center={mapPosition} zoom={18} style={{ height: 250, width: '100%' }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                {isExtremeDanger ? (
-                  <>
-                    <Circle
-                      center={DEFAULT_POSITION}
-                      radius={30}
-                      pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.5 }}
-                    />
-                    <Marker position={DEFAULT_POSITION} icon={DangerIcon}>
-                      <Popup>
-                        <span className="text-red-700 font-bold">🚨 Extreme Danger: E Block (Fire Detected)</span>
-                      </Popup>
-                    </Marker>
-                  </>
-                ) : (
-                  <Marker position={mapPosition}>
-                    <Popup>Incident location: {result.location}</Popup>
-                  </Marker>
-                )}
-              </MapContainer>
-            </div>
-          </div>
-
+        {/* Incident Details and Threat Assessment */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border p-4 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-2">Emergency Contacts</h3>
-            <ul>
-              <li>Fire Dept: <a className="text-blue-600" href="tel:101">101</a></li>
-              <li>Police: <a className="text-blue-600" href="tel:100">100</a></li>
-              <li>Facility Support: <a className="text-blue-600" href="tel:1800123456">1800-123-456</a></li>
+            <h2 className="text-xl font-semibold mb-4">Incident Details</h2>
+            <ul className="space-y-3">
+              <li className="flex justify-between">
+                <span>Fire Detection:</span>
+                <span className={`font-medium ${result.fire_count > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {result.fire_count > 0 ? `Detected (${result.fire_count})` : "None"}
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Smoke Detection:</span>
+                <span className={`font-medium ${result.smoke_count > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {result.smoke_count > 0 ? `Detected (${result.smoke_count})` : "None"}
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Crowd Density:</span>
+                <span className={`font-medium ${result.crowd_density > 0.7 ? 'text-red-600' : result.crowd_density > 0.4 ? 'text-yellow-600' : 'text-green-600'}`}>
+                  {Math.round(result.crowd_density * 100)}%
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Location:</span>
+                <span>{result.location}</span>
+              </li>
+              <li className="flex justify-between">
+                <span>Alert Status:</span>
+                <span className={`font-bold ${result.alertType === "Fire" ? 'text-red-600' : result.alertType === "Crowd" ? 'text-yellow-600' : 'text-green-600'}`}>
+                  {result.alertType}
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Last Analyzed:</span>
+                <span>{lastAnalysisTime ? lastAnalysisTime.toLocaleTimeString() : "Never"}</span>
+              </li>
             </ul>
           </div>
 
-          <div className="border p-4 rounded-lg shadow-md flex flex-col">
-            <h3 className="text-xl font-semibold mb-2">Operator</h3>
-            <span><b>Name:</b> {user?.name || "Security Staff"}</span>
-            <span><b>Building:</b> {buildingInfo?.name || "VNRVJIET"}</span>
+          <div className="border p-4 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">Threat Assessment</h2>
+            <div className="bg-gray-50 p-3 rounded border min-h-[200px] whitespace-pre-wrap font-sans">
+              {showAIResult ? threatAnalysis : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-pulse text-gray-500">
+                    {loading ? "Analyzing threats..." : "Analysis ready"}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Annotated Images */}
+        {(result.annotated_img_base64 || result.crowd_annotated_img_base64) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {result.annotated_img_base64 && (
+              <div className="border p-4 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Detection Results</h2>
+                <img
+                  src={`data:image/jpeg;base64,${result.annotated_img_base64}`}
+                  alt="Detection results"
+                  className="max-h-96 mx-auto rounded-lg border"
+                />
+              </div>
+            )}
+            {result.crowd_annotated_img_base64 && (
+              <div className="border p-4 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Crowd Analysis</h2>
+                <img
+                  src={`data:image/jpeg;base64,${result.crowd_annotated_img_base64}`}
+                  alt="Crowd analysis results"
+                  className="max-h-96 mx-auto rounded-lg border"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Incident History Table with Scroll and Sticky Header */}
+        <div className="border p-4 rounded-lg shadow-md mb-4">
+          <h2 className="text-xl font-semibold mb-2">Incident History</h2>
+          <div className="max-h-64 overflow-y-auto rounded border">
+            <table className="min-w-full text-xs table-auto">
+              <thead className="sticky top-0 bg-white z-10 shadow">
+                <tr>
+                  <th className="px-3 py-2 text-left font-bold text-gray-700">Time</th>
+                  <th className="px-3 py-2 text-left font-bold text-gray-700">Fire</th>
+                  <th className="px-3 py-2 text-left font-bold text-gray-700">Smoke</th>
+                  <th className="px-3 py-2 text-left font-bold text-gray-700">Crowd</th>
+                  <th className="px-3 py-2 text-left font-bold text-gray-700">Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incidentLog.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-gray-400">No incidents yet</td>
+                  </tr>
+                ) : (
+                  incidentLog.map((item, idx) => (
+                    <tr
+                      key={idx}
+                      className={`border-b ${idx % 2 === 0 ? 'bg-gray-100' : 'bg-white'} hover:bg-blue-50 transition`}
+                    >
+                      <td className="px-3 py-2">{item.timestamp && new Date(item.timestamp).toLocaleTimeString()}</td>
+                      <td className="px-3 py-2">{item.fire_count}</td>
+                      <td className="px-3 py-2">{item.smoke_count}</td>
+                      <td className="px-3 py-2">{Math.round(item.crowd_density * 100)}%</td>
+                      <td className="px-3 py-2">{item.location}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-    </>
-  );
-};
 
-// Example usage wrapping the navbar & dashboard together
-const App = () => {
-  const user = { name: "John Doe" };
-  const buildingInfo = { name: "E Block" };
+      {/* Sidebar */}
+      <div className="w-full md:w-96 flex flex-col gap-6">
+        {/* Incident Location Map */}
+        <div className="border p-4 rounded-lg shadow-md bg-white overflow-hidden">
+          <h2 className="text-xl font-semibold mb-2">Incident Location Map</h2>
+          <div style={{ borderRadius: 16, overflow: "hidden", minHeight: 250 }}>
+            <MapContainer center={mapPosition} zoom={18} style={{ height: 250, width: '100%' }}>
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {isExtremeDanger ? (
+                <>
+                  <Circle
+                    center={DEFAULT_POSITION}
+                    radius={30}
+                    pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.5 }}
+                  />
+                  <Marker position={DEFAULT_POSITION} icon={DangerIcon}>
+                    <Popup>
+                      <span className="text-red-700 font-bold">🚨 Extreme Danger: E Block (Fire Detected)</span>
+                    </Popup>
+                  </Marker>
+                </>
+              ) : (
+                <Marker position={mapPosition}>
+                  <Popup>Incident location: {result.location}</Popup>
+                </Marker>
+              )}
+            </MapContainer>
+          </div>
+        </div>
 
-  return (
-    <>
-      <Navbar />
-      <div>
-        <SurveillanceDashboard user={user} buildingInfo={buildingInfo} />
+        {/* Emergency Contacts */}
+        <div className="border p-4 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-2">Emergency Contacts</h2>
+          <ul>
+            <li>Fire Dept: <a className="text-blue-600" href="tel:101">101</a></li>
+            <li>Police: <a className="text-blue-600" href="tel:100">100</a></li>
+            <li>Facility Support: <a className="text-blue-600" href="tel:1800123456">1800-123-456</a></li>
+          </ul>
+        </div>
+
+        {/* User / Building Info */}
+        <div className="border p-4 rounded-lg shadow-md flex flex-col">
+          <h2 className="text-xl font-semibold mb-2">Operator</h2>
+          <span><b>Name:</b> {user?.name || "Security Staff"}</span>
+          <span><b>Building:</b> {buildingInfo?.name || "VNRVJIET"}</span>
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 
-export default App;
+export default SurveillanceDashboard;
