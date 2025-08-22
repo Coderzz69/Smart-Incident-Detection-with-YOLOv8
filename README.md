@@ -34,10 +34,10 @@ The application consists of three main components:
 3.  **ML Service (Flask)**: A Python-based service that performs the heavy lifting of object detection. It uses YOLOv8 models to analyze images and returns the detection results (fire, smoke, crowd count) to the Node.js backend.
 
 ```
-┌──────────┐      ┌─────────────────┐      ┌──────────────────┐
-│  Frontend  │◄───►│  Backend (Node.js)  │◄───►│  ML Service (Flask)  │
-│  (React)   │      │     (Express)     │      │      (YOLOv8)      │
-└──────────┘      └─────────────────┘      └──────────────────┘
+┌──────────┐     ┌─────────────────┐      ┌──────────────────┐
+│ Frontend │◄───►│ Backend(Node.js)│◄───► │ ML Service(Flask)│
+│ (React)  │     │    (Express)    │      │      (YOLOv8)    │
+└──────────┘     └─────────────────┘      └──────────────────┘
 ```
 
 ## ✅ Prerequisites
